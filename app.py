@@ -9,6 +9,8 @@ from boto3.dynamodb.conditions import Key
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+from flask_cors import CORS
+CORS(app)
 
 load_dotenv()
 app = Flask(__name__)
