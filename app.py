@@ -10,10 +10,11 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from flask_cors import CORS
-CORS(app)
+
 
 load_dotenv()
 app = Flask(__name__)
+CORS(app)
 
 # 🔐 CONFIG
 AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
