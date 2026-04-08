@@ -716,6 +716,7 @@
   let alarmGainNode = null;
   let alarmPulseTimer = null;
   let audioContext = null;
+  let pendingAlarmStartHandler = null;
   let selectedPrescriptionImage = '';
   let uploadedPrescriptionFileKey = '';
   let snoozeTimer = null;
@@ -1167,11 +1168,20 @@
     el.className = 'form-note' + (type ? ' ' + type : '');
   }
 
-  function updateDashboardUser(user) {
-    const safeUser = user || defaultUsers[0];
-    const firstName = (safeUser.name || 'User').trim().split(/\s+/)[0];
-    document.querySelector('.dash-greeting .name').textContent = 'Good morning, ' + firstName;
-    document.querySelector('.dash-avatar').textContent = firstName.charAt(0).toUpperCase();
+  function updateDashboardUser() {
+    const user = getCurrentUser();
+    if (!user) return;
+
+    const nameEl = document.querySelector('.dash-greeting .name');
+    const avatarEl = document.querySelector('.dash-avatar');
+
+    if (nameEl) {
+      nameEl.textContent = `Good morning, ${user.name}`;
+    }
+
+    if (avatarEl) {
+      avatarEl.textContent = user.name.charAt(0).toUpperCase();
+    }
   }
 
   function clearAuthMessages() {
@@ -1179,84 +1189,6 @@
     setMessage('signupMessage', '', '');
   }
 
-  function handleLogin(event) {
-    event.preventDefault();
-    submitLogin();
-  }
-
-  async function submitLogin() {
-    const email = document.getElementById('email-inp').value.trim().toLowerCase();
-    const password = document.getElementById('pass-inp').value;
-
-    if (!email) {
-      setMessage('loginMessage', 'Enter an email address to continue.', 'error');
-      return;
-    }
-    if (!password) {
-      setMessage('loginMessage', 'Enter both email and password.', 'error');
-      return;
-    }
-
-    if (password !== '1234') {
-      setMessage('loginMessage', 'Use password 1234 to sign in.', 'error');
-      return;
-    }
-
-    clearAuthMessages();
-    const firstName = normalizeUserId(email) || 'User';
-    const sessionUser = {
-      name: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-      email,
-      password: '1234',
-      user_id: normalizeUserId(email)
-    };
-    setCurrentUser(sessionUser);
-    updateDashboardUser(sessionUser);
-    document.getElementById('loginForm').reset();
-    loadDashboardMedicines();
-    goTo('s-dashboard');
-  }
-
-  function handleSignup(event) {
-    event.preventDefault();
-    submitSignup();
-  }
-
-  async function submitSignup() {
-    const name = document.getElementById('signup-name').value.trim();
-    const email = document.getElementById('signup-email').value.trim().toLowerCase();
-    const password = document.getElementById('signup-pass').value;
-    const confirmPassword = document.getElementById('signup-pass-confirm').value;
-    const users = getUsers();
-
-    if (!name || !email || !password || !confirmPassword) {
-      setMessage('signupMessage', 'Please complete all fields.', 'error');
-      return;
-    }
-    if (password.length < 4) {
-      setMessage('signupMessage', 'Use a password with at least 4 characters.', 'error');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setMessage('signupMessage', 'Passwords do not match.', 'error');
-      return;
-    }
-    if (users.some(entry => entry.email.toLowerCase() === email)) {
-      setMessage('signupMessage', 'That email is already registered. Please log in instead.', 'error');
-      return;
-    }
-
-    const newUser = { name, email, password, user_id: normalizeUserId(email) };
-    users.push(newUser);
-    saveUsers(users);
-    clearAuthMessages();
-    setCurrentUser(newUser);
-    updateDashboardUser(newUser);
-    document.getElementById('signupForm').reset();
-    document.getElementById('pass-inp').value = '';
-    loadDashboardMedicines();
-    goTo('s-dashboard');
-  }
 
   function requireAuth(targetScreen) {
     if (targetScreen === 's-login' || targetScreen === 's-signup') return false;
@@ -1361,6 +1293,30 @@
     return audioContext;
   }
 
+  function initAlarmAudio() {
+    if (!alarmAudio) {
+      alarmAudio = new Audio('alarm.mp3');
+      alarmAudio.loop = true;
+      alarmAudio.preload = 'auto';
+      alarmAudio.volume = 1;
+      alarmAudio.addEventListener('canplaythrough', () => {
+        alarmAudioReady = true;
+      });
+      alarmAudio.addEventListener('error', () => {
+        alarmAudioReady = false;
+      });
+    }
+    return alarmAudio;
+  }
+
+  function unlockAlarmMedia() {
+    ensureAlarmAudioContext();
+    const audio = initAlarmAudio();
+    try {
+      audio.load();
+    } catch (e) {}
+  }
+
   function startFallbackAlarmTone() {
     const ctx = ensureAlarmAudioContext();
     if (!ctx || alarmOscillator) return;
@@ -1388,42 +1344,86 @@
     alarmPulseTimer = setInterval(pulseTone, 700);
   }
 
+  function clearPendingAlarmInteraction() {
+    if (!pendingAlarmStartHandler) return;
+    const alarmScreen = document.getElementById('s-alarm');
+    if (alarmScreen) {
+      alarmScreen.removeEventListener('click', pendingAlarmStartHandler);
+    }
+    pendingAlarmStartHandler = null;
+  }
+
   function startAlarm() {
+    if (!activeReminder) return;
+    clearPendingAlarmInteraction();
+    unlockAlarmMedia();
+    startFallbackAlarmTone();
     try {
-      if (!alarmAudio) {
-        alarmAudio = new Audio('alarm.mp3');
-        alarmAudio.loop = true;
-        alarmAudio.addEventListener('canplaythrough', () => {
-          alarmAudioReady = true;
-        });
-        alarmAudio.addEventListener('error', () => {
-          alarmAudioReady = false;
-          startFallbackAlarmTone();
-        });
-      }
-      const playPromise = alarmAudio.play();
+      const audio = initAlarmAudio();
+      const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
           alarmAudioReady = true;
+          if (alarmPulseTimer || alarmOscillator) {
+            if (alarmPulseTimer) {
+              clearInterval(alarmPulseTimer);
+              alarmPulseTimer = null;
+            }
+            if (alarmOscillator) {
+              try { alarmOscillator.stop(); } catch (e) {}
+              alarmOscillator.disconnect();
+              alarmOscillator = null;
+            }
+            if (alarmGainNode) {
+              alarmGainNode.disconnect();
+              alarmGainNode = null;
+            }
+          }
         }).catch(() => {
+          if (!activeReminder) return;
           alarmAudioReady = false;
-          startFallbackAlarmTone();
-          document.getElementById('s-alarm').addEventListener('click', () => {
-            if (!alarmAudioReady) startFallbackAlarmTone();
-            alarmAudio.play().then(() => {
+          pendingAlarmStartHandler = (event) => {
+            const actionTarget = event.target.closest('.btn-taken, .btn-snooze, .alarm-dismiss');
+            if (actionTarget) return;
+            if (!activeReminder) return;
+            unlockAlarmMedia();
+            startFallbackAlarmTone();
+            audio.play().then(() => {
+              clearPendingAlarmInteraction();
+              if (!activeReminder) {
+                stopAlarm();
+                return;
+              }
               alarmAudioReady = true;
+              if (alarmPulseTimer) {
+                clearInterval(alarmPulseTimer);
+                alarmPulseTimer = null;
+              }
+              if (alarmOscillator) {
+                try { alarmOscillator.stop(); } catch (e) {}
+                alarmOscillator.disconnect();
+                alarmOscillator = null;
+              }
+              if (alarmGainNode) {
+                alarmGainNode.disconnect();
+                alarmGainNode = null;
+              }
             }).catch(() => {
+              if (!activeReminder) return;
               startFallbackAlarmTone();
             });
-          }, { once: true });
+          };
+          document.getElementById('s-alarm').addEventListener('click', pendingAlarmStartHandler);
         });
       }
     } catch(e) {
+      if (!activeReminder) return;
       startFallbackAlarmTone();
     }
   }
 
   function stopAlarm() {
+    clearPendingAlarmInteraction();
     if (alarmAudio) {
       alarmAudio.pause();
       alarmAudio.currentTime = 0;
@@ -1538,8 +1538,60 @@
   const d = new Date();
   const el = document.getElementById('dashDate');
   if (el) el.textContent = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
-  document.getElementById('loginForm').addEventListener('submit', handleLogin);
-  document.getElementById('signupForm').addEventListener('submit', handleSignup);
+  document.getElementById("loginForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const email = document.getElementById("email-inp").value.trim();
+    const password = document.getElementById("pass-inp").value.trim();
+
+    const users = getUsers();
+    const user = users.find(u => u.email === email && u.password === password);
+
+    if (!user) {
+      setMessage("loginMessage", "Invalid email or password", "error");
+      return;
+    }
+
+    setCurrentUser(user);
+    setMessage("loginMessage", "Login successful", "success");
+
+    updateDashboardUser();
+    goTo("s-dashboard");
+  });
+  document.getElementById("signupForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const name = document.getElementById("signup-name").value.trim();
+    const email = document.getElementById("signup-email").value.trim();
+    const password = document.getElementById("signup-pass").value.trim();
+    const confirm = document.getElementById("signup-pass-confirm").value.trim();
+
+    if (!name || !email || !password) {
+      setMessage("signupMessage", "All fields required", "error");
+      return;
+    }
+
+    if (password !== confirm) {
+      setMessage("signupMessage", "Passwords do not match", "error");
+      return;
+    }
+
+    const users = getUsers();
+
+    if (users.some(u => u.email === email)) {
+      setMessage("signupMessage", "User already exists", "error");
+      return;
+    }
+
+    const newUser = { name, email, password };
+
+    users.push(newUser);
+    saveUsers(users);
+
+    setMessage("signupMessage", "Signup successful", "success");
+
+    setTimeout(() => goTo("s-login"), 1000);
+  });
   document.getElementById('openSignupBtn').addEventListener('click', () => {
     clearAuthMessages();
     goTo('s-signup');
@@ -1560,6 +1612,9 @@
       closeEditModal();
     }
   });
+  ['pointerdown', 'touchstart', 'keydown'].forEach((eventName) => {
+    document.addEventListener(eventName, unlockAlarmMedia, { passive: true });
+  });
   renderDashboardMedicines([]);
   startReminderWatcher();
   document.addEventListener('visibilitychange', () => {
@@ -1568,7 +1623,6 @@
     }
   });
   clearCurrentUser();
-  updateDashboardUser(defaultUsers[0]);
   getUsers();
   goTo('s-login');
 </script>
