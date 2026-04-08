@@ -4,13 +4,16 @@ import uuid
 import io
 import re
 import os
+import threading
+import time
 from mindee import BytesInput, ClientV2, OCRParameters, OCRResponse
 from boto3.dynamodb.conditions import Key
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from flask_cors import CORS
-
+from twilio.rest import Client
 
 load_dotenv()
 app = Flask(__name__)
@@ -37,6 +40,17 @@ USERS_TABLE_NAME = os.getenv("USERS_TABLE_NAME", "users")
 PORT = int(os.getenv("PORT", "5000"))
 DEBUG = os.getenv("FLASK_DEBUG", "true").lower() == "true"
 
+ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_NUMBER = os.getenv("TWILIO_PHONE")
+USER_NUMBER = os.getenv("USER_PHONE")
+twilio_client = Client(ACCOUNT_SID, AUTH_TOKEN) if ACCOUNT_SID and AUTH_TOKEN else None
+SMS_TIMEZONE = ZoneInfo(os.getenv("SMS_TIMEZONE", "Asia/Kolkata"))
+DAILY_SMS_HOUR = int(os.getenv("DAILY_SMS_HOUR", "0"))
+DAILY_SMS_MINUTE = int(os.getenv("DAILY_SMS_MINUTE", "10"))
+DAILY_SMS_MESSAGE = "Ensure medicines available for the day and to be consumed by patient"
+last_daily_sms_date = None
+daily_sms_lock = threading.Lock()
 
 # =========================
 # AWS CLIENTS
@@ -71,6 +85,52 @@ def validate_required_config():
     if not MINDEE_OCR_MODEL_ID:
         missing.append("MINDEE_OCR_MODEL_ID")
     return missing
+
+
+def send_sms(message):
+    try:
+        if not twilio_client:
+            print("SMS error: Twilio client is not configured")
+            return
+
+        if not TWILIO_NUMBER or not USER_NUMBER:
+            print("SMS error: Twilio phone numbers are missing")
+            return
+
+        msg = twilio_client.messages.create(
+            body=message,
+            from_=TWILIO_NUMBER,
+            to=USER_NUMBER
+        )
+        print("SMS sent:", msg.sid)
+    except Exception as e:
+        print("SMS error:", str(e))
+
+
+def maybe_send_daily_sms():
+    global last_daily_sms_date
+
+    now = datetime.now(SMS_TIMEZONE)
+    if now.hour != DAILY_SMS_HOUR or now.minute != DAILY_SMS_MINUTE:
+        return
+
+    today = now.date().isoformat()
+    with daily_sms_lock:
+        if last_daily_sms_date == today:
+            return
+        send_sms(DAILY_SMS_MESSAGE)
+        last_daily_sms_date = today
+
+
+def run_daily_sms_scheduler():
+    while True:
+        maybe_send_daily_sms()
+        time.sleep(20)
+
+
+def start_background_jobs():
+    scheduler_thread = threading.Thread(target=run_daily_sms_scheduler, daemon=True)
+    scheduler_thread.start()
 
 # =========================
 # 🔐 AUTH
@@ -687,4 +747,5 @@ def home():
 # =========================
 
 if __name__ == '__main__':
+    start_background_jobs()
     app.run(debug=DEBUG, host="0.0.0.0", port=PORT)
