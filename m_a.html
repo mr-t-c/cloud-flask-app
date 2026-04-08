@@ -722,12 +722,14 @@
   let lastExtractedMedicines = [];
   let currentDashboardMedicines = [];
   let activeReminder = null;
+  let activeReminderGroup = [];
   let reminderWatcher = null;
   let triggeredReminderKeys = {};
   let snoozedReminderTimes = {};
   let takenReminderKeys = {};
   let reminderStateDay = todayKey();
   let editingMedicineId = null;
+  let alarmStoppedManually = false;
 
   async function apiJson(path, options = {}) {
     const response = await fetch(`${BASE_URL}${path}`, options);
@@ -863,21 +865,28 @@
     return `${item.dosage || '-'} · ${tabletLabel}`;
   }
 
-  function populateAlarmScreen(item) {
+  function getReminderGroup(item) {
+    if (!item) return [];
+    return currentDashboardMedicines.filter((entry) => !isReminderTaken(entry) && (entry.time || '') === (item.time || ''));
+  }
+
+  function populateAlarmScreen(itemOrItems) {
     const nameEl = document.getElementById('alarmMedicineName');
     const doseEl = document.getElementById('alarmDose');
     const timeEl = document.getElementById('alarmTime');
+    const items = Array.isArray(itemOrItems) ? itemOrItems.filter(Boolean) : (itemOrItems ? [itemOrItems] : []);
 
-    if (!item) {
+    if (!items.length) {
       nameEl.textContent = 'No active reminder';
       doseEl.textContent = 'Waiting for the next schedule';
       timeEl.textContent = '--:--';
       return;
     }
 
-    nameEl.textContent = item.name || 'Medicine reminder';
-    doseEl.textContent = getReminderDoseText(item);
-    timeEl.textContent = formatTimeLabel(item.time);
+    const firstItem = items[0];
+    nameEl.textContent = items.map((item) => item.name || 'Medicine').join(', ');
+    doseEl.textContent = items.map((item) => getReminderDoseText(item)).join(' | ');
+    timeEl.textContent = formatTimeLabel(firstItem.time);
   }
 
   function parseMinutes(timeValue) {
@@ -1092,7 +1101,8 @@
       if (activeReminder && String(activeReminder.medicine_id) === String(medicine.medicine_id)) {
         const updatedReminder = currentDashboardMedicines.find((item) => String(item.medicine_id) === String(medicine.medicine_id)) || null;
         activeReminder = updatedReminder;
-        populateAlarmScreen(updatedReminder);
+        activeReminderGroup = updatedReminder ? getReminderGroup(updatedReminder) : [];
+        populateAlarmScreen(activeReminderGroup);
       }
       closeEditModal();
     } catch (err) {
@@ -1107,13 +1117,15 @@
 
   function triggerReminder(item) {
     activeReminder = item;
-    populateAlarmScreen(item);
+    activeReminderGroup = getReminderGroup(item);
+    populateAlarmScreen(activeReminderGroup);
     goTo('s-alarm');
   }
 
   function openAlarmPreview() {
     const previewReminder = activeReminder || getNextUpcomingReminder();
-    populateAlarmScreen(previewReminder);
+    const previewGroup = activeReminderGroup.length ? activeReminderGroup : getReminderGroup(previewReminder);
+    populateAlarmScreen(previewGroup);
     goTo('s-alarm');
   }
 
@@ -1125,6 +1137,8 @@
       triggeredReminderKeys = {};
       snoozedReminderTimes = {};
       takenReminderKeys = {};
+      activeReminder = null;
+      activeReminderGroup = [];
       renderDashboardMedicines(currentDashboardMedicines);
     }
 
@@ -1139,7 +1153,9 @@
       const snoozedUntil = snoozedReminderTimes[key];
       if (snoozedUntil) {
         if (nowMs >= snoozedUntil) {
-          delete snoozedReminderTimes[key];
+          getReminderGroup(item).forEach((entry) => {
+            delete snoozedReminderTimes[reminderKey(entry)];
+          });
           triggerReminder(item);
           return;
         }
@@ -1148,7 +1164,9 @@
 
       if (triggeredReminderKeys[key]) continue;
       if ((item.time || '') === currentTime) {
-        triggeredReminderKeys[key] = true;
+        getReminderGroup(item).forEach((entry) => {
+          triggeredReminderKeys[reminderKey(entry)] = true;
+        });
         triggerReminder(item);
         return;
       }
@@ -1170,7 +1188,7 @@
   function updateDashboardUser(user) {
     const safeUser = user || defaultUsers[0];
     const firstName = (safeUser.name || 'User').trim().split(/\s+/)[0];
-    document.querySelector('.dash-greeting .name').textContent = 'Good morning, ' + firstName;
+    document.querySelector('.dash-greeting .name').textContent = 'Good day, ' + firstName;
     document.querySelector('.dash-avatar').textContent = firstName.charAt(0).toUpperCase();
   }
 
@@ -1390,6 +1408,7 @@
 
   function startAlarm() {
     try {
+      alarmStoppedManually = false;
       if (!alarmAudio) {
         alarmAudio = new Audio('alarm.mp3');
         alarmAudio.loop = true;
@@ -1404,15 +1423,30 @@
       const playPromise = alarmAudio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
+          if (alarmStoppedManually && alarmAudio) {
+            alarmAudio.pause();
+            alarmAudio.currentTime = 0;
+            return;
+          }
           alarmAudioReady = true;
         }).catch(() => {
+          if (alarmStoppedManually) {
+            return;
+          }
           alarmAudioReady = false;
           startFallbackAlarmTone();
           document.getElementById('s-alarm').addEventListener('click', () => {
+            if (alarmStoppedManually) return;
             if (!alarmAudioReady) startFallbackAlarmTone();
             alarmAudio.play().then(() => {
+              if (alarmStoppedManually && alarmAudio) {
+                alarmAudio.pause();
+                alarmAudio.currentTime = 0;
+                return;
+              }
               alarmAudioReady = true;
             }).catch(() => {
+              if (alarmStoppedManually) return;
               startFallbackAlarmTone();
             });
           }, { once: true });
@@ -1424,9 +1458,14 @@
   }
 
   function stopAlarm() {
+    alarmStoppedManually = true;
     if (alarmAudio) {
       alarmAudio.pause();
       alarmAudio.currentTime = 0;
+      alarmAudio.muted = true;
+      setTimeout(() => {
+        if (alarmAudio) alarmAudio.muted = false;
+      }, 0);
     }
     if (alarmPulseTimer) {
       clearInterval(alarmPulseTimer);
@@ -1445,20 +1484,24 @@
   }
 
   function markTaken() {
-    if (activeReminder) {
-      takenReminderKeys[reminderKey(activeReminder)] = true;
-    }
+    const group = activeReminderGroup.length ? activeReminderGroup : (activeReminder ? [activeReminder] : []);
+    group.forEach((item) => {
+      takenReminderKeys[reminderKey(item)] = true;
+    });
     activeReminder = null;
+    activeReminderGroup = [];
     stopAlarm();
     renderDashboardMedicines(currentDashboardMedicines);
     goTo('s-dashboard');
   }
 
   function snooze() {
-    if (activeReminder) {
-      snoozedReminderTimes[reminderKey(activeReminder)] = Date.now() + (5 * 60 * 1000);
-    }
+    const group = activeReminderGroup.length ? activeReminderGroup : (activeReminder ? [activeReminder] : []);
+    group.forEach((item) => {
+      snoozedReminderTimes[reminderKey(item)] = Date.now() + (5 * 60 * 1000);
+    });
     activeReminder = null;
+    activeReminderGroup = [];
     stopAlarm();
     renderDashboardMedicines(currentDashboardMedicines);
     goTo('s-dashboard');
@@ -1475,6 +1518,7 @@
 
   function dismissAlarm() {
     activeReminder = null;
+    activeReminderGroup = [];
     stopAlarm();
     goTo('s-dashboard');
   }
