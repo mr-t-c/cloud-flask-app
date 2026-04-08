@@ -135,6 +135,12 @@
   .med-info { flex: 1; }
   .med-name { font-size: 20px; font-weight: 500; color: #1a3a5c; }
   .med-dose { font-size: 15px; color: #5a7fa8; margin-top: 3px; }
+  .med-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+  }
   .status-pill {
     padding: 7px 14px; border-radius: 20px;
     font-size: 15px; font-weight: 500;
@@ -142,6 +148,85 @@
   .status-upcoming { background: #fff3cd; color: #7d5a00; }
   .status-taken { background: #d4edda; color: #155724; }
   .status-missed { background: #fce8e8; color: #7a1b1b; }
+  .med-edit-btn {
+    border: 1px solid #bcd7f4;
+    background: #f5faff;
+    color: #1565c0;
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .edit-modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 46, 92, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    z-index: 35;
+  }
+  .edit-modal-overlay.show { display: flex; }
+  .edit-modal {
+    width: 100%;
+    max-width: 360px;
+    background: #fff;
+    border-radius: 20px;
+    padding: 1.25rem;
+    box-shadow: 0 24px 48px rgba(10, 46, 92, 0.22);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .edit-modal-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1a3a5c;
+  }
+  .edit-field-label {
+    font-size: 14px;
+    color: #5a7fa8;
+    margin-bottom: 4px;
+    display: block;
+  }
+  .edit-input {
+    width: 100%;
+    border: 2px solid #d7e7f8;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 16px;
+    color: #1a3a5c;
+    background: #f8fbff;
+  }
+  .edit-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .edit-modal-actions button {
+    flex: 1;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .edit-cancel-btn {
+    background: #eef4fb;
+    color: #1a3a5c;
+  }
+  .edit-save-btn {
+    background: #1565c0;
+    color: #fff;
+  }
+  .edit-error {
+    min-height: 18px;
+    font-size: 13px;
+    color: #b42318;
+  }
   .dash-footer { padding: 1rem 1.5rem 1.5rem; }
   .dash-actions {
     display: flex;
@@ -594,6 +679,27 @@
     <div class="alarm-dismiss" onclick="dismissAlarm()">Dismiss alarm</div>
   </div>
 
+  <div class="edit-modal-overlay" id="editModalOverlay">
+    <div class="edit-modal">
+      <div class="edit-modal-title">Edit Medicine</div>
+      <form id="editMedicineForm">
+        <label class="edit-field-label" for="editMedicineName">Medicine Name</label>
+        <input class="edit-input" id="editMedicineName" type="text" />
+        <label class="edit-field-label" for="editMedicineDosage">Dosage</label>
+        <input class="edit-input" id="editMedicineDosage" type="text" />
+        <label class="edit-field-label" for="editMedicineTablets">Tablets</label>
+        <input class="edit-input" id="editMedicineTablets" type="number" min="1" step="1" />
+        <label class="edit-field-label" for="editMedicineTime">Time</label>
+        <input class="edit-input" id="editMedicineTime" type="time" />
+        <div class="edit-error" id="editMedicineError"></div>
+        <div class="edit-modal-actions">
+          <button class="edit-cancel-btn" type="button" onclick="closeEditModal()">Cancel</button>
+          <button class="edit-save-btn" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -621,6 +727,7 @@
   let snoozedReminderTimes = {};
   let takenReminderKeys = {};
   let reminderStateDay = todayKey();
+  let editingMedicineId = null;
 
   async function apiJson(path, options = {}) {
     const response = await fetch(`${BASE_URL}${path}`, options);
@@ -810,6 +917,16 @@
     return `${twelveHour}:${minute} ${suffix}`;
   }
 
+  function normalizeTimeInput(value) {
+    const raw = String(value || '').trim();
+    const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
   function summarizeMedicines(items) {
     const grouped = new Map();
     (items || []).forEach((item) => {
@@ -872,7 +989,10 @@
             <div class="med-name">${escapeHtml(item.name || 'Unknown medicine')}</div>
             <div class="med-dose">${escapeHtml(item.dosage || '')} · ${escapeHtml(tabletLabel)}${durationLabel}</div>
           </div>
-          <div class="status-pill ${statusClass}">${statusText}</div>
+          <div class="med-actions">
+            <div class="status-pill ${statusClass}">${statusText}</div>
+            <button class="med-edit-btn" type="button" onclick="editMedicine('${escapeHtml(item.medicine_id || '')}')">Edit</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -894,6 +1014,89 @@
       console.error('Failed to load medicines:', err);
       currentDashboardMedicines = [];
       renderDashboardMedicines([]);
+    }
+  }
+
+  async function editMedicine(medicineId) {
+    const medicine = currentDashboardMedicines.find((item) => String(item.medicine_id) === String(medicineId));
+    if (!medicine) {
+      alert('Medicine not found.');
+      return;
+    }
+    editingMedicineId = String(medicine.medicine_id);
+    document.getElementById('editMedicineName').value = medicine.name || '';
+    document.getElementById('editMedicineDosage').value = medicine.dosage || '';
+    document.getElementById('editMedicineTablets').value = String(medicine.tablets || 1);
+    document.getElementById('editMedicineTime').value = medicine.time || '09:00';
+    document.getElementById('editMedicineError').textContent = '';
+    document.getElementById('editModalOverlay').classList.add('show');
+    document.getElementById('editMedicineName').focus();
+  }
+
+  function closeEditModal() {
+    editingMedicineId = null;
+    document.getElementById('editMedicineError').textContent = '';
+    document.getElementById('editModalOverlay').classList.remove('show');
+  }
+
+  async function saveEditedMedicine(event) {
+    event.preventDefault();
+    if (!editingMedicineId) return;
+
+    const medicine = currentDashboardMedicines.find((item) => String(item.medicine_id) === String(editingMedicineId));
+    if (!medicine) {
+      document.getElementById('editMedicineError').textContent = 'Medicine not found.';
+      return;
+    }
+
+    const newName = document.getElementById('editMedicineName').value.trim();
+    const newDosage = document.getElementById('editMedicineDosage').value.trim();
+    const newTabletsRaw = document.getElementById('editMedicineTablets').value;
+    const newTimeRaw = document.getElementById('editMedicineTime').value;
+    const normalizedTime = normalizeTimeInput(newTimeRaw);
+    const tablets = Number(newTabletsRaw);
+
+    if (!newName || !newDosage) {
+      document.getElementById('editMedicineError').textContent = 'Name and dosage are required.';
+      return;
+    }
+    if (!normalizedTime) {
+      document.getElementById('editMedicineError').textContent = 'Please enter a valid time in HH:MM format.';
+      return;
+    }
+    if (!Number.isFinite(tablets) || tablets <= 0) {
+      document.getElementById('editMedicineError').textContent = 'Please enter a valid positive number of tablets.';
+      return;
+    }
+
+    try {
+      document.getElementById('editMedicineError').textContent = 'Saving...';
+      await apiJson('/update-medicine', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: getApiUserId(),
+          medicine_id: medicine.medicine_id,
+          name: newName,
+          dosage: newDosage,
+          tablets,
+          duration_text: medicine.duration_text || null,
+          duration_days: medicine.duration_days ?? null,
+          time: normalizedTime
+        })
+      });
+
+      await loadDashboardMedicines();
+      if (activeReminder && String(activeReminder.medicine_id) === String(medicine.medicine_id)) {
+        const updatedReminder = currentDashboardMedicines.find((item) => String(item.medicine_id) === String(medicine.medicine_id)) || null;
+        activeReminder = updatedReminder;
+        populateAlarmScreen(updatedReminder);
+      }
+      closeEditModal();
+    } catch (err) {
+      document.getElementById('editMedicineError').textContent = err.message || 'Failed to update medicine.';
     }
   }
 
@@ -1350,6 +1553,12 @@
   });
   document.getElementById('cameraInput').addEventListener('change', async (event) => {
     await handlePrescriptionSelected(event, 'camera');
+  });
+  document.getElementById('editMedicineForm').addEventListener('submit', saveEditedMedicine);
+  document.getElementById('editModalOverlay').addEventListener('click', (event) => {
+    if (event.target.id === 'editModalOverlay') {
+      closeEditModal();
+    }
   });
   renderDashboardMedicines([]);
   startReminderWatcher();
