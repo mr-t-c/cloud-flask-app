@@ -135,12 +135,6 @@
   .med-info { flex: 1; }
   .med-name { font-size: 20px; font-weight: 500; color: #1a3a5c; }
   .med-dose { font-size: 15px; color: #5a7fa8; margin-top: 3px; }
-  .med-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-end;
-  }
   .status-pill {
     padding: 7px 14px; border-radius: 20px;
     font-size: 15px; font-weight: 500;
@@ -148,85 +142,6 @@
   .status-upcoming { background: #fff3cd; color: #7d5a00; }
   .status-taken { background: #d4edda; color: #155724; }
   .status-missed { background: #fce8e8; color: #7a1b1b; }
-  .med-edit-btn {
-    border: 1px solid #bcd7f4;
-    background: #f5faff;
-    color: #1565c0;
-    border-radius: 10px;
-    padding: 7px 12px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .edit-modal-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(10, 46, 92, 0.45);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 1.25rem;
-    z-index: 35;
-  }
-  .edit-modal-overlay.show { display: flex; }
-  .edit-modal {
-    width: 100%;
-    max-width: 360px;
-    background: #fff;
-    border-radius: 20px;
-    padding: 1.25rem;
-    box-shadow: 0 24px 48px rgba(10, 46, 92, 0.22);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .edit-modal-title {
-    font-size: 22px;
-    font-weight: 600;
-    color: #1a3a5c;
-  }
-  .edit-field-label {
-    font-size: 14px;
-    color: #5a7fa8;
-    margin-bottom: 4px;
-    display: block;
-  }
-  .edit-input {
-    width: 100%;
-    border: 2px solid #d7e7f8;
-    border-radius: 12px;
-    padding: 12px 14px;
-    font-size: 16px;
-    color: #1a3a5c;
-    background: #f8fbff;
-  }
-  .edit-modal-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 4px;
-  }
-  .edit-modal-actions button {
-    flex: 1;
-    border: none;
-    border-radius: 12px;
-    padding: 12px 14px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .edit-cancel-btn {
-    background: #eef4fb;
-    color: #1a3a5c;
-  }
-  .edit-save-btn {
-    background: #1565c0;
-    color: #fff;
-  }
-  .edit-error {
-    min-height: 18px;
-    font-size: 13px;
-    color: #b42318;
-  }
   .dash-footer { padding: 1rem 1.5rem 1.5rem; }
   .dash-actions {
     display: flex;
@@ -586,7 +501,7 @@
           <div class="plus-icon">+</div>
           ADD NEW PRESCRIPTION
         </button>
-        <button class="btn-outline" type="button" onclick="openAlarmPreview()">OPEN ALARM PAGE</button>
+        <button class="btn-outline" type="button" onclick="goTo('s-alarm')">OPEN ALARM PAGE</button>
       </div>
     </div>
   </div>
@@ -667,37 +582,16 @@
       </svg>
     </div>
     <div class="alarm-label">Time to take your medicine</div>
-    <div class="alarm-med-name" id="alarmMedicineName">No active reminder</div>
-    <div class="alarm-dose" id="alarmDose">Waiting for the next schedule</div>
-    <div class="alarm-time" id="alarmTime">--:--</div>
+    <div class="alarm-med-name">Lisinopril</div>
+    <div class="alarm-dose">10mg · 1 tablet</div>
+    <div class="alarm-time">12:00 PM</div>
     <button class="btn-taken" onclick="markTaken()">
       MARK AS TAKEN
     </button>
     <button class="btn-snooze" onclick="snooze()">
       SNOOZE 5 MIN
     </button>
-    <div class="alarm-dismiss" onclick="dismissAlarm()">Dismiss alarm</div>
-  </div>
-
-  <div class="edit-modal-overlay" id="editModalOverlay">
-    <div class="edit-modal">
-      <div class="edit-modal-title">Edit Medicine</div>
-      <form id="editMedicineForm">
-        <label class="edit-field-label" for="editMedicineName">Medicine Name</label>
-        <input class="edit-input" id="editMedicineName" type="text" />
-        <label class="edit-field-label" for="editMedicineDosage">Dosage</label>
-        <input class="edit-input" id="editMedicineDosage" type="text" />
-        <label class="edit-field-label" for="editMedicineTablets">Tablets</label>
-        <input class="edit-input" id="editMedicineTablets" type="number" min="1" step="1" />
-        <label class="edit-field-label" for="editMedicineTime">Time</label>
-        <input class="edit-input" id="editMedicineTime" type="time" />
-        <div class="edit-error" id="editMedicineError"></div>
-        <div class="edit-modal-actions">
-          <button class="edit-cancel-btn" type="button" onclick="closeEditModal()">Cancel</button>
-          <button class="edit-save-btn" type="submit">Save</button>
-        </div>
-      </form>
-    </div>
+    <div class="alarm-dismiss" onclick="goTo('s-dashboard')">Dismiss alarm</div>
   </div>
 
 </div>
@@ -720,14 +614,6 @@
   let uploadedPrescriptionFileKey = '';
   let snoozeTimer = null;
   let lastExtractedMedicines = [];
-  let currentDashboardMedicines = [];
-  let activeReminder = null;
-  let reminderWatcher = null;
-  let triggeredReminderKeys = {};
-  let snoozedReminderTimes = {};
-  let takenReminderKeys = {};
-  let reminderStateDay = todayKey();
-  let editingMedicineId = null;
 
   async function apiJson(path, options = {}) {
     const response = await fetch(`${BASE_URL}${path}`, options);
@@ -845,59 +731,6 @@
     return "test123";
   }
 
-  function todayKey() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  function reminderKey(item) {
-    return `${todayKey()}|${getApiUserId()}|${item.medicine_id || ''}|${item.name || ''}|${item.dosage || ''}|${item.time || ''}`;
-  }
-
-  function isReminderTaken(item) {
-    return !!takenReminderKeys[reminderKey(item)];
-  }
-
-  function getReminderDoseText(item) {
-    const tablets = Number(item.tablets || 1);
-    const tabletLabel = `${tablets} tablet${tablets === 1 ? '' : 's'}`;
-    return `${item.dosage || '-'} · ${tabletLabel}`;
-  }
-
-  function populateAlarmScreen(item) {
-    const nameEl = document.getElementById('alarmMedicineName');
-    const doseEl = document.getElementById('alarmDose');
-    const timeEl = document.getElementById('alarmTime');
-
-    if (!item) {
-      nameEl.textContent = 'No active reminder';
-      doseEl.textContent = 'Waiting for the next schedule';
-      timeEl.textContent = '--:--';
-      return;
-    }
-
-    nameEl.textContent = item.name || 'Medicine reminder';
-    doseEl.textContent = getReminderDoseText(item);
-    timeEl.textContent = formatTimeLabel(item.time);
-  }
-
-  function parseMinutes(timeValue) {
-    if (!timeValue || typeof timeValue !== 'string' || !timeValue.includes(':')) return Number.MAX_SAFE_INTEGER;
-    const [hourText, minuteText] = timeValue.split(':');
-    return (Number(hourText) * 60) + Number(minuteText || '0');
-  }
-
-  function getNextUpcomingReminder() {
-    const candidates = currentDashboardMedicines
-      .filter((item) => !isReminderTaken(item))
-      .sort((a, b) => parseMinutes(a.time) - parseMinutes(b.time));
-
-    if (!candidates.length) return null;
-
-    const now = new Date();
-    const currentMinutes = (now.getHours() * 60) + now.getMinutes();
-    return candidates.find((item) => parseMinutes(item.time) >= currentMinutes) || candidates[0];
-  }
-
   function escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -915,16 +748,6 @@
     const suffix = hour >= 12 ? 'PM' : 'AM';
     const twelveHour = hour % 12 || 12;
     return `${twelveHour}:${minute} ${suffix}`;
-  }
-
-  function normalizeTimeInput(value) {
-    const raw = String(value || '').trim();
-    const match = raw.match(/^(\d{1,2}):(\d{2})$/);
-    if (!match) return null;
-    const hours = Number(match[1]);
-    const minutes = Number(match[2]);
-    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   }
 
   function summarizeMedicines(items) {
@@ -969,19 +792,12 @@
     }
 
     const sortedItems = [...items].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-    const nextReminder = getNextUpcomingReminder();
-    listEl.innerHTML = sortedItems.map((item) => {
+    listEl.innerHTML = sortedItems.map((item, index) => {
       const tablets = Number(item.tablets || 1);
       const tabletLabel = `${tablets} tablet${tablets === 1 ? '' : 's'}`;
       const durationLabel = item.duration_text ? ` · ${escapeHtml(item.duration_text)}` : '';
-      let statusClass = 'status-upcoming';
-      let statusText = 'Upcoming';
-      if (isReminderTaken(item)) {
-        statusClass = 'status-taken';
-        statusText = 'Taken';
-      } else if (nextReminder && reminderKey(nextReminder) === reminderKey(item)) {
-        statusText = 'Due Soon';
-      }
+      const statusClass = index === 0 ? 'status-upcoming' : 'status-upcoming';
+      const statusText = index === 0 ? 'Due Soon' : 'Upcoming';
       return `
         <div class="med-card">
           <div class="med-time-badge">${escapeHtml(formatTimeLabel(item.time))}</div>
@@ -989,10 +805,7 @@
             <div class="med-name">${escapeHtml(item.name || 'Unknown medicine')}</div>
             <div class="med-dose">${escapeHtml(item.dosage || '')} · ${escapeHtml(tabletLabel)}${durationLabel}</div>
           </div>
-          <div class="med-actions">
-            <div class="status-pill ${statusClass}">${statusText}</div>
-            <button class="med-edit-btn" type="button" onclick="editMedicine('${escapeHtml(item.medicine_id || '')}')">Edit</button>
-          </div>
+          <div class="status-pill ${statusClass}">${statusText}</div>
         </div>
       `;
     }).join('');
@@ -1001,163 +814,22 @@
   async function loadDashboardMedicines() {
     const userId = getApiUserId();
     if (!userId) {
-      currentDashboardMedicines = [];
       renderDashboardMedicines([]);
       return;
     }
 
     try {
       const medicines = await apiJson(`/get-medicines/${encodeURIComponent(userId)}`);
-      currentDashboardMedicines = medicines;
       renderDashboardMedicines(medicines);
     } catch (err) {
       console.error('Failed to load medicines:', err);
-      currentDashboardMedicines = [];
       renderDashboardMedicines([]);
-    }
-  }
-
-  async function editMedicine(medicineId) {
-    const medicine = currentDashboardMedicines.find((item) => String(item.medicine_id) === String(medicineId));
-    if (!medicine) {
-      alert('Medicine not found.');
-      return;
-    }
-    editingMedicineId = String(medicine.medicine_id);
-    document.getElementById('editMedicineName').value = medicine.name || '';
-    document.getElementById('editMedicineDosage').value = medicine.dosage || '';
-    document.getElementById('editMedicineTablets').value = String(medicine.tablets || 1);
-    document.getElementById('editMedicineTime').value = medicine.time || '09:00';
-    document.getElementById('editMedicineError').textContent = '';
-    document.getElementById('editModalOverlay').classList.add('show');
-    document.getElementById('editMedicineName').focus();
-  }
-
-  function closeEditModal() {
-    editingMedicineId = null;
-    document.getElementById('editMedicineError').textContent = '';
-    document.getElementById('editModalOverlay').classList.remove('show');
-  }
-
-  async function saveEditedMedicine(event) {
-    event.preventDefault();
-    if (!editingMedicineId) return;
-
-    const medicine = currentDashboardMedicines.find((item) => String(item.medicine_id) === String(editingMedicineId));
-    if (!medicine) {
-      document.getElementById('editMedicineError').textContent = 'Medicine not found.';
-      return;
-    }
-
-    const newName = document.getElementById('editMedicineName').value.trim();
-    const newDosage = document.getElementById('editMedicineDosage').value.trim();
-    const newTabletsRaw = document.getElementById('editMedicineTablets').value;
-    const newTimeRaw = document.getElementById('editMedicineTime').value;
-    const normalizedTime = normalizeTimeInput(newTimeRaw);
-    const tablets = Number(newTabletsRaw);
-
-    if (!newName || !newDosage) {
-      document.getElementById('editMedicineError').textContent = 'Name and dosage are required.';
-      return;
-    }
-    if (!normalizedTime) {
-      document.getElementById('editMedicineError').textContent = 'Please enter a valid time in HH:MM format.';
-      return;
-    }
-    if (!Number.isFinite(tablets) || tablets <= 0) {
-      document.getElementById('editMedicineError').textContent = 'Please enter a valid positive number of tablets.';
-      return;
-    }
-
-    try {
-      document.getElementById('editMedicineError').textContent = 'Saving...';
-      await apiJson('/update-medicine', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          user_id: getApiUserId(),
-          medicine_id: medicine.medicine_id,
-          name: newName,
-          dosage: newDosage,
-          tablets,
-          duration_text: medicine.duration_text || null,
-          duration_days: medicine.duration_days ?? null,
-          time: normalizedTime
-        })
-      });
-
-      await loadDashboardMedicines();
-      if (activeReminder && String(activeReminder.medicine_id) === String(medicine.medicine_id)) {
-        const updatedReminder = currentDashboardMedicines.find((item) => String(item.medicine_id) === String(medicine.medicine_id)) || null;
-        activeReminder = updatedReminder;
-        populateAlarmScreen(updatedReminder);
-      }
-      closeEditModal();
-    } catch (err) {
-      document.getElementById('editMedicineError').textContent = err.message || 'Failed to update medicine.';
     }
   }
 
   function confirmSchedule() {
     goTo('s-dashboard');
     loadDashboardMedicines();
-  }
-
-  function triggerReminder(item) {
-    activeReminder = item;
-    populateAlarmScreen(item);
-    goTo('s-alarm');
-  }
-
-  function openAlarmPreview() {
-    const previewReminder = activeReminder || getNextUpcomingReminder();
-    populateAlarmScreen(previewReminder);
-    goTo('s-alarm');
-  }
-
-  function checkReminderTimes() {
-    if (!getCurrentUser() || activeReminder || !currentDashboardMedicines.length) return;
-
-    if (reminderStateDay !== todayKey()) {
-      reminderStateDay = todayKey();
-      triggeredReminderKeys = {};
-      snoozedReminderTimes = {};
-      takenReminderKeys = {};
-      renderDashboardMedicines(currentDashboardMedicines);
-    }
-
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const nowMs = now.getTime();
-
-    for (const item of currentDashboardMedicines) {
-      const key = reminderKey(item);
-      if (isReminderTaken(item)) continue;
-
-      const snoozedUntil = snoozedReminderTimes[key];
-      if (snoozedUntil) {
-        if (nowMs >= snoozedUntil) {
-          delete snoozedReminderTimes[key];
-          triggerReminder(item);
-          return;
-        }
-        continue;
-      }
-
-      if (triggeredReminderKeys[key]) continue;
-      if ((item.time || '') === currentTime) {
-        triggeredReminderKeys[key] = true;
-        triggerReminder(item);
-        return;
-      }
-    }
-  }
-
-  function startReminderWatcher() {
-    if (reminderWatcher) return;
-    reminderWatcher = setInterval(checkReminderTimes, 1000);
   }
 
   function setMessage(id, message, type) {
@@ -1167,95 +839,25 @@
     el.className = 'form-note' + (type ? ' ' + type : '');
   }
 
-  function updateDashboardUser(user) {
-    const safeUser = user || defaultUsers[0];
-    const firstName = (safeUser.name || 'User').trim().split(/\s+/)[0];
-    document.querySelector('.dash-greeting .name').textContent = 'Good morning, ' + firstName;
-    document.querySelector('.dash-avatar').textContent = firstName.charAt(0).toUpperCase();
+  function updateDashboardUser() {
+    const user = getCurrentUser();
+    if (!user) return;
+
+    const nameEl = document.querySelector(".dash-greeting .name");
+    const avatarEl = document.querySelector(".dash-avatar");
+
+    if (nameEl) {
+      nameEl.textContent = `Good morning, ${user.name}`;
+    }
+
+    if (avatarEl) {
+      avatarEl.textContent = user.name.charAt(0).toUpperCase();
+    }
   }
 
   function clearAuthMessages() {
     setMessage('loginMessage', '', '');
     setMessage('signupMessage', '', '');
-  }
-
-  function handleLogin(event) {
-    event.preventDefault();
-    submitLogin();
-  }
-
-  async function submitLogin() {
-    const email = document.getElementById('email-inp').value.trim().toLowerCase();
-    const password = document.getElementById('pass-inp').value;
-
-    if (!email) {
-      setMessage('loginMessage', 'Enter an email address to continue.', 'error');
-      return;
-    }
-    if (!password) {
-      setMessage('loginMessage', 'Enter both email and password.', 'error');
-      return;
-    }
-
-    if (password !== '1234') {
-      setMessage('loginMessage', 'Use password 1234 to sign in.', 'error');
-      return;
-    }
-
-    clearAuthMessages();
-    const firstName = normalizeUserId(email) || 'User';
-    const sessionUser = {
-      name: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-      email,
-      password: '1234',
-      user_id: normalizeUserId(email)
-    };
-    setCurrentUser(sessionUser);
-    updateDashboardUser(sessionUser);
-    document.getElementById('loginForm').reset();
-    loadDashboardMedicines();
-    goTo('s-dashboard');
-  }
-
-  function handleSignup(event) {
-    event.preventDefault();
-    submitSignup();
-  }
-
-  async function submitSignup() {
-    const name = document.getElementById('signup-name').value.trim();
-    const email = document.getElementById('signup-email').value.trim().toLowerCase();
-    const password = document.getElementById('signup-pass').value;
-    const confirmPassword = document.getElementById('signup-pass-confirm').value;
-    const users = getUsers();
-
-    if (!name || !email || !password || !confirmPassword) {
-      setMessage('signupMessage', 'Please complete all fields.', 'error');
-      return;
-    }
-    if (password.length < 4) {
-      setMessage('signupMessage', 'Use a password with at least 4 characters.', 'error');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setMessage('signupMessage', 'Passwords do not match.', 'error');
-      return;
-    }
-    if (users.some(entry => entry.email.toLowerCase() === email)) {
-      setMessage('signupMessage', 'That email is already registered. Please log in instead.', 'error');
-      return;
-    }
-
-    const newUser = { name, email, password, user_id: normalizeUserId(email) };
-    users.push(newUser);
-    saveUsers(users);
-    clearAuthMessages();
-    setCurrentUser(newUser);
-    updateDashboardUser(newUser);
-    document.getElementById('signupForm').reset();
-    document.getElementById('pass-inp').value = '';
-    loadDashboardMedicines();
-    goTo('s-dashboard');
   }
 
   function requireAuth(targetScreen) {
@@ -1271,7 +873,7 @@
     screens.forEach(s => {
       document.getElementById(s).classList.toggle('active', s === id);
     });
-    if (id === 's-alarm' && activeReminder) {
+    if (id === 's-alarm') {
       startAlarm();
     } else {
       stopAlarm();
@@ -1445,38 +1047,22 @@
   }
 
   function markTaken() {
-    if (activeReminder) {
-      takenReminderKeys[reminderKey(activeReminder)] = true;
-    }
-    activeReminder = null;
     stopAlarm();
-    renderDashboardMedicines(currentDashboardMedicines);
     goTo('s-dashboard');
   }
 
   function snooze() {
-    if (activeReminder) {
-      snoozedReminderTimes[reminderKey(activeReminder)] = Date.now() + (5 * 60 * 1000);
-    }
-    activeReminder = null;
     stopAlarm();
-    renderDashboardMedicines(currentDashboardMedicines);
     goTo('s-dashboard');
     if (snoozeTimer) clearTimeout(snoozeTimer);
     snoozeTimer = setTimeout(() => {
-      checkReminderTimes();
+      goTo('s-alarm');
     }, 5 * 60 * 1000);
     const info = document.createElement('div');
     info.style.cssText = 'position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:#1565c0;color:#fff;padding:12px 22px;border-radius:12px;font-size:17px;z-index:20;white-space:nowrap;';
     info.textContent = 'Snoozed — alarm in 5 minutes';
     document.querySelector('.app-frame').appendChild(info);
     setTimeout(() => info.remove(), 3000);
-  }
-
-  function dismissAlarm() {
-    activeReminder = null;
-    stopAlarm();
-    goTo('s-dashboard');
   }
 
   async function startScan() {
@@ -1538,8 +1124,68 @@
   const d = new Date();
   const el = document.getElementById('dashDate');
   if (el) el.textContent = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
-  document.getElementById('loginForm').addEventListener('submit', handleLogin);
-  document.getElementById('signupForm').addEventListener('submit', handleSignup);
+  document.getElementById("loginForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const email = document.getElementById("email-inp").value.trim();
+    const password = document.getElementById("pass-inp").value.trim();
+
+    const users = getUsers();
+    const user = users.find(u => u.email === email && u.password === password);
+
+    if (!user) {
+      setMessage("loginMessage", "Invalid email or password", "error");
+      return;
+    }
+
+    setCurrentUser(user);
+    setMessage("loginMessage", "Login successful", "success");
+
+    updateDashboardUser();
+    goTo("s-dashboard");
+  });
+
+
+  document.getElementById("signupForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const name = document.getElementById("signup-name").value.trim();
+    const email = document.getElementById("signup-email").value.trim();
+    const password = document.getElementById("signup-pass").value.trim();
+    const confirm = document.getElementById("signup-pass-confirm").value.trim();
+
+    if (!name || !email || !password) {
+      setMessage("signupMessage", "All fields required", "error");
+      return;
+    }
+
+    if (password !== confirm) {
+      setMessage("signupMessage", "Passwords do not match", "error");
+      return;
+    }
+
+    const users = getUsers();
+
+    if (users.some(u => u.email === email)) {
+      setMessage("signupMessage", "User already exists", "error");
+      return;
+    }
+
+    const newUser = {
+      name,
+      email,
+      password
+    };
+
+    users.push(newUser);
+    saveUsers(users);
+
+    setMessage("signupMessage", "Signup successful", "success");
+
+    setTimeout(() => {
+      goTo("s-login");
+    }, 1000);
+  });
   document.getElementById('openSignupBtn').addEventListener('click', () => {
     clearAuthMessages();
     goTo('s-signup');
@@ -1554,19 +1200,7 @@
   document.getElementById('cameraInput').addEventListener('change', async (event) => {
     await handlePrescriptionSelected(event, 'camera');
   });
-  document.getElementById('editMedicineForm').addEventListener('submit', saveEditedMedicine);
-  document.getElementById('editModalOverlay').addEventListener('click', (event) => {
-    if (event.target.id === 'editModalOverlay') {
-      closeEditModal();
-    }
-  });
   renderDashboardMedicines([]);
-  startReminderWatcher();
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      checkReminderTimes();
-    }
-  });
   clearCurrentUser();
   updateDashboardUser(defaultUsers[0]);
   getUsers();
