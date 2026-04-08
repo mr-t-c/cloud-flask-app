@@ -1203,21 +1203,42 @@
   }
 
   async function submitLogin() {
-    const email = document.getElementById('email-inp').value.trim();
-    const password = document.getElementById('pass-inp').value.trim();
-    const users = getUsers();
-    const user = users.find(u => u.email === email && u.password === password);
+    const email = document.getElementById('email-inp').value.trim().toLowerCase();
+    const password = document.getElementById('pass-inp').value;
 
-    if (!user) {
-      setMessage('loginMessage', 'Invalid email or password', 'error');
+    if (!email) {
+      setMessage('loginMessage', 'Enter an email address to continue.', 'error');
+      return;
+    }
+    if (!password) {
+      setMessage('loginMessage', 'Enter both email and password.', 'error');
       return;
     }
 
-    setCurrentUser(user);
-    setMessage('loginMessage', 'Login successful', 'success');
-    updateDashboardUser(user);
-    loadDashboardMedicines();
-    goTo('s-dashboard');
+    try {
+      setMessage('loginMessage', 'Signing in...', '');
+      const result = await apiJson('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      clearAuthMessages();
+      const sessionUser = {
+        name: normalizeUserId(result.email) || 'User',
+        email: result.email,
+        user_id: result.user_id
+      };
+      setCurrentUser(sessionUser);
+      updateDashboardUser(sessionUser);
+      document.getElementById('loginForm').reset();
+      loadDashboardMedicines();
+      goTo('s-dashboard');
+    } catch (err) {
+      setMessage('loginMessage', err.message || 'Invalid email or password', 'error');
+    }
   }
 
   function handleSignup(event) {
@@ -1227,31 +1248,44 @@
 
   async function submitSignup() {
     const name = document.getElementById('signup-name').value.trim();
-    const email = document.getElementById('signup-email').value.trim();
-    const password = document.getElementById('signup-pass').value.trim();
-    const confirmPassword = document.getElementById('signup-pass-confirm').value.trim();
+    const email = document.getElementById('signup-email').value.trim().toLowerCase();
+    const password = document.getElementById('signup-pass').value;
+    const confirmPassword = document.getElementById('signup-pass-confirm').value;
 
-    if (!name || !email || !password) {
-      setMessage('signupMessage', 'All fields required', 'error');
+    if (!name || !email || !password || !confirmPassword) {
+      setMessage('signupMessage', 'Please complete all fields.', 'error');
       return;
     }
-
     if (password !== confirmPassword) {
-      setMessage('signupMessage', 'Passwords do not match', 'error');
+      setMessage('signupMessage', 'Passwords do not match.', 'error');
       return;
     }
 
-    const users = getUsers();
-    if (users.some(u => u.email === email)) {
-      setMessage('signupMessage', 'User already exists', 'error');
-      return;
-    }
+    try {
+      setMessage('signupMessage', 'Creating account...', '');
+      const result = await apiJson('/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
 
-    const newUser = { name, email, password };
-    users.push(newUser);
-    saveUsers(users);
-    setMessage('signupMessage', 'Signup successful', 'success');
-    setTimeout(() => goTo('s-login'), 1000);
+      clearAuthMessages();
+      const newUser = {
+        name,
+        email: result.email,
+        user_id: result.user_id
+      };
+      setCurrentUser(newUser);
+      updateDashboardUser(newUser);
+      document.getElementById('signupForm').reset();
+      document.getElementById('pass-inp').value = '';
+      loadDashboardMedicines();
+      goTo('s-dashboard');
+    } catch (err) {
+      setMessage('signupMessage', err.message || 'Signup failed', 'error');
+    }
   }
 
   function requireAuth(targetScreen) {
