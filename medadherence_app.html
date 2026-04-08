@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans, system-ui, sans-serif); }
+  .app-frame {
+    max-width: 420px;
+    margin: 1rem auto;
+    border: 2px solid var(--color-border-primary, #ccc);
+    border-radius: 28px;
+    overflow: hidden;
+    background: #f5f5f5;
+    min-height: 780px;
+    position: relative;
+    box-shadow: none;
+  }
+  .screen {
+    display: none;
+    min-height: 780px;
+    flex-direction: column;
+    background: #fff;
+  }
+  .screen.active { display: flex; }
+
+  /* ── SCREEN 1: LOGIN ── */
+  #s-login,
+  #s-signup {
+    background: #0a2e5c;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 2rem;
+    gap: 0;
+  }
+  .login-logo {
+    width: 80px; height: 80px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  .login-logo svg { width: 46px; height: 46px; }
+  .login-title {
+    color: #fff;
+    font-size: 30px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+  .login-sub { color: #a8c4e8; font-size: 18px; text-align: center; margin-bottom: 2rem; }
+  .login-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 2rem 1.75rem;
+    width: 100%;
+  }
+  .field-label { font-size: 18px; color: #1a3a5c; font-weight: 500; margin-bottom: 8px; display: block; }
+  .big-input {
+    width: 100%; padding: 16px 18px;
+    font-size: 20px; border-radius: 12px;
+    border: 2.5px solid #b0c8e8;
+    color: #1a3a5c; background: #f0f6ff;
+    margin-bottom: 1.5rem;
+    outline: none;
+  }
+  .big-input:focus { border-color: #1565c0; background: #e8f1ff; }
+  .btn-primary {
+    width: 100%; padding: 20px;
+    font-size: 22px; font-weight: 500;
+    background: #1565c0; color: #fff;
+    border: none; border-radius: 14px;
+    cursor: pointer; letter-spacing: 0.5px;
+  }
+  .btn-primary:active { background: #0d47a1; }
+  .signup-link {
+    text-align: center; margin-top: 1.25rem;
+    font-size: 18px; color: #a8c4e8;
+  }
+  .signup-link button {
+    color: #fff;
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 500;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+  }
+  .form-note {
+    font-size: 15px;
+    color: #5a7fa8;
+    text-align: center;
+    margin-top: 1rem;
+    min-height: 1.2em;
+  }
+  .form-note.error { color: #c0392b; }
+  .form-note.success { color: #1e8449; }
+  .demo-creds {
+    margin-top: 1rem;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #e8f1ff;
+    color: #1a3a5c;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  /* ── SCREEN 2: DASHBOARD ── */
+  #s-dashboard { background: #f0f6ff; }
+  .dash-header {
+    background: #0a2e5c; padding: 1.5rem 1.5rem 1.25rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .dash-greeting { color: #fff; }
+  .dash-greeting .name { font-size: 22px; font-weight: 500; }
+  .dash-greeting .date { font-size: 16px; color: #a8c4e8; margin-top: 2px; }
+  .dash-avatar {
+    width: 52px; height: 52px; background: #1565c0;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 22px; font-weight: 500;
+  }
+  .dash-section-label {
+    font-size: 20px; font-weight: 500; color: #1a3a5c;
+    padding: 1.25rem 1.5rem 0.75rem;
+  }
+  .med-list { flex: 1; overflow-y: auto; padding: 0 1rem 1rem; display: flex; flex-direction: column; gap: 12px; }
+  .med-card {
+    background: #fff; border-radius: 16px; padding: 18px 20px;
+    border: 2px solid #d0e4f8; display: flex; align-items: center; gap: 16px;
+  }
+  .med-time-badge {
+    background: #e3f0ff; color: #1565c0;
+    font-size: 16px; font-weight: 500;
+    padding: 8px 14px; border-radius: 10px;
+    min-width: 80px; text-align: center;
+  }
+  .med-info { flex: 1; }
+  .med-name { font-size: 20px; font-weight: 500; color: #1a3a5c; }
+  .med-dose { font-size: 15px; color: #5a7fa8; margin-top: 3px; }
+  .status-pill {
+    padding: 7px 14px; border-radius: 20px;
+    font-size: 15px; font-weight: 500;
+  }
+  .status-upcoming { background: #fff3cd; color: #7d5a00; }
+  .status-taken { background: #d4edda; color: #155724; }
+  .status-missed { background: #fce8e8; color: #7a1b1b; }
+  .dash-footer { padding: 1rem 1.5rem 1.5rem; }
+  .dash-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .btn-add {
+    width: 100%; padding: 22px;
+    font-size: 22px; font-weight: 500;
+    background: #1565c0; color: #fff;
+    border: none; border-radius: 16px;
+    cursor: pointer; letter-spacing: 0.5px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+  }
+  .btn-add:active { background: #0d47a1; }
+  .btn-outline {
+    width: 100%;
+    padding: 18px 20px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #0a2e5c;
+    background: #fff;
+    border: 2px solid #bcd7f4;
+    border-radius: 16px;
+    cursor: pointer;
+  }
+  .btn-outline:active { background: #e8f1ff; }
+  .plus-icon {
+    width: 32px; height: 32px; background: rgba(255,255,255,0.3);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 26px; line-height: 1;
+  }
+
+  /* ── SCREEN 3: UPLOAD ── */
+  #s-upload { background: #f0f6ff; }
+  .upload-header {
+    background: #0a2e5c; padding: 1.5rem;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .back-btn {
+    background: rgba(255,255,255,0.15); border: none;
+    width: 44px; height: 44px; border-radius: 50%;
+    color: #fff; font-size: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .upload-header-title { color: #fff; font-size: 22px; font-weight: 500; }
+  .upload-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; gap: 1.5rem; }
+  .upload-zone {
+    width: 100%; border: 3px dashed #5a9de0;
+    border-radius: 20px; padding: 3rem 2rem;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    background: #e8f1ff; cursor: pointer; text-align: center;
+  }
+  .upload-icon { width: 72px; height: 72px; }
+  .upload-zone-title { font-size: 24px; font-weight: 500; color: #1a3a5c; }
+  .upload-zone-sub { font-size: 17px; color: #5a7fa8; }
+  .btn-capture {
+    width: 100%; padding: 22px;
+    font-size: 22px; font-weight: 500;
+    background: #28a745; color: #fff;
+    border: none; border-radius: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+  }
+  .btn-capture:active { background: #1e7e34; }
+  .upload-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .upload-choice {
+    width: 100%;
+    padding: 18px 20px;
+    font-size: 19px;
+    font-weight: 500;
+    color: #1a3a5c;
+    background: #fff;
+    border: 2px solid #bcd7f4;
+    border-radius: 16px;
+    cursor: pointer;
+    display: block;
+    text-align: center;
+  }
+  .upload-choice:active {
+    background: #e8f1ff;
+  }
+  .visually-hidden-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .upload-status {
+    width: 100%;
+    text-align: center;
+    color: #5a7fa8;
+    font-size: 15px;
+    min-height: 1.2em;
+  }
+  .preview-card {
+    display: none;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #d0e4f8;
+    border-radius: 20px;
+    padding: 1rem;
+    gap: 0.9rem;
+    flex-direction: column;
+  }
+  .preview-card.show {
+    display: flex;
+  }
+  .preview-title {
+    font-size: 19px;
+    font-weight: 600;
+    color: #1a3a5c;
+    text-align: center;
+  }
+  .preview-image {
+    width: 100%;
+    max-height: 260px;
+    object-fit: cover;
+    border-radius: 14px;
+    background: #e8f1ff;
+    border: 1px solid #d0e4f8;
+  }
+  .preview-actions {
+    display: flex;
+    gap: 12px;
+  }
+  .preview-actions button {
+    flex: 1;
+  }
+  .btn-secondary {
+    width: 100%;
+    padding: 18px 20px;
+    font-size: 18px;
+    font-weight: 500;
+    background: #edf4fb;
+    color: #1a3a5c;
+    border: 2px solid #c7daef;
+    border-radius: 14px;
+    cursor: pointer;
+  }
+  .btn-secondary:active {
+    background: #dfeefa;
+  }
+  .spinner-overlay {
+    display: none; position: absolute;
+    inset: 0; background: rgba(0,0,0,0.5);
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 1rem; z-index: 10;
+    border-radius: 26px;
+  }
+  .spinner-overlay.show { display: flex; }
+  .spinner {
+    width: 72px; height: 72px;
+    border: 7px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner-text { color: #fff; font-size: 20px; }
+  .confirm-card {
+    display: none; background: #fff;
+    border-radius: 20px; padding: 2rem;
+    border: 2px solid #d0e4f8; width: 100%;
+    flex-direction: column; gap: 1.25rem;
+  }
+  .confirm-card.show { display: flex; }
+  .confirm-title { font-size: 22px; font-weight: 500; color: #1a3a5c; text-align: center; }
+  .confirm-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; border-bottom: 1.5px solid #e0eef8;
+  }
+  .confirm-row:last-of-type { border-bottom: none; }
+  .confirm-label { font-size: 17px; color: #5a7fa8; }
+  .confirm-val { font-size: 20px; font-weight: 500; color: #1a3a5c; }
+  .btn-confirm {
+    width: 100%; padding: 20px;
+    font-size: 22px; font-weight: 500;
+    background: #1565c0; color: #fff;
+    border: none; border-radius: 14px; cursor: pointer;
+  }
+  .btn-confirm:active { background: #0d47a1; }
+
+  /* ── SCREEN 4: ALARM ── */
+  #s-alarm {
+    background: #c0392b;
+    align-items: center; justify-content: center;
+    padding: 2.5rem 1.75rem;
+    gap: 0;
+    animation: pulseBg 1.2s ease-in-out infinite;
+  }
+  @keyframes pulseBg {
+    0%, 100% { background: #c0392b; }
+    50% { background: #e74c3c; }
+  }
+  .alarm-badge {
+    background: rgba(255,255,255,0.2);
+    border: 2.5px solid rgba(255,255,255,0.5);
+    border-radius: 50px; padding: 12px 28px;
+    color: #fff; font-size: 20px; font-weight: 500;
+    letter-spacing: 2px; margin-bottom: 2rem;
+  }
+  .alarm-icon { margin-bottom: 1.25rem; }
+  .alarm-label { color: rgba(255,255,255,0.8); font-size: 20px; margin-bottom: 0.75rem; }
+  .alarm-med-name {
+    color: #fff; font-size: 48px; font-weight: 500;
+    text-align: center; line-height: 1.15;
+    margin-bottom: 0.5rem;
+  }
+  .alarm-dose { color: rgba(255,255,255,0.75); font-size: 22px; margin-bottom: 2.5rem; }
+  .alarm-time { color: rgba(255,255,255,0.9); font-size: 26px; margin-bottom: 3rem; font-weight: 500; }
+  .btn-taken {
+    width: 100%; padding: 26px;
+    font-size: 26px; font-weight: 500;
+    background: #27ae60; color: #fff;
+    border: none; border-radius: 18px; cursor: pointer;
+    margin-bottom: 1rem; letter-spacing: 0.5px;
+  }
+  .btn-taken:active { background: #1e8449; }
+  .btn-snooze {
+    width: 100%; padding: 26px;
+    font-size: 26px; font-weight: 500;
+    background: #f39c12; color: #fff;
+    border: none; border-radius: 18px; cursor: pointer;
+    letter-spacing: 0.5px;
+  }
+  .btn-snooze:active { background: #d68910; }
+  .alarm-dismiss { margin-top: 1.5rem; color: rgba(255,255,255,0.6); font-size: 17px; cursor: pointer; text-decoration: underline; }
+</style>
+
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">MedAlert — 4-screen medical adherence app prototype</h2>
+
+<div class="app-frame">
+
+  <!-- SPINNER OVERLAY (shared) -->
+  <div class="spinner-overlay" id="spinnerOverlay">
+    <div class="spinner"></div>
+    <div class="spinner-text">Scanning prescription...</div>
+  </div>
+
+  <!-- SCREEN 1: LOGIN -->
+  <div class="screen active" id="s-login">
+    <div class="login-logo">
+      <svg viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="5" width="36" height="36" rx="10" fill="#0a2e5c"/>
+        <rect x="20" y="11" width="6" height="24" rx="3" fill="#fff"/>
+        <rect x="11" y="20" width="24" height="6" rx="3" fill="#fff"/>
+      </svg>
+    </div>
+    <div class="login-title">MedAlert</div>
+    <div class="login-sub">Your daily medication companion</div>
+    <form class="login-card" id="loginForm">
+      <label class="field-label" for="email-inp">Email address</label>
+      <input class="big-input" id="email-inp" type="email" placeholder="you@email.com" />
+      <label class="field-label" for="pass-inp">Password</label>
+      <input class="big-input" id="pass-inp" type="password" placeholder="••••••••" />
+      <button class="btn-primary" type="submit">SIGN IN</button>
+      <div class="signup-link">New user? <button id="openSignupBtn" type="button">Sign Up here</button></div>
+      <div class="form-note" id="loginMessage"></div>
+      <div class="demo-creds">
+        Login with any email address.<br>
+        Password: <strong>1234</strong>
+      </div>
+    </form>
+  </div>
+
+  <!-- SCREEN 1B: SIGNUP -->
+  <div class="screen" id="s-signup">
+    <div class="login-logo">
+      <svg viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="5" width="36" height="36" rx="10" fill="#0a2e5c"/>
+        <rect x="20" y="11" width="6" height="24" rx="3" fill="#fff"/>
+        <rect x="11" y="20" width="24" height="6" rx="3" fill="#fff"/>
+      </svg>
+    </div>
+    <div class="login-title">Create Account</div>
+    <div class="login-sub">Add a new MedAlert user</div>
+    <form class="login-card" id="signupForm">
+      <label class="field-label" for="signup-name">Full name</label>
+      <input class="big-input" id="signup-name" type="text" placeholder="Margaret Smith" />
+      <label class="field-label" for="signup-email">Email address</label>
+      <input class="big-input" id="signup-email" type="email" placeholder="you@email.com" />
+      <label class="field-label" for="signup-pass">Password</label>
+      <input class="big-input" id="signup-pass" type="password" placeholder="Create a password" />
+      <label class="field-label" for="signup-pass-confirm">Confirm password</label>
+      <input class="big-input" id="signup-pass-confirm" type="password" placeholder="Re-enter password" />
+      <button class="btn-primary" type="submit">SIGN UP</button>
+      <div class="signup-link">Already have an account? <button id="backToLoginBtn" type="button">Back to login</button></div>
+      <div class="form-note" id="signupMessage"></div>
+    </form>
+  </div>
+
+  <!-- SCREEN 2: DASHBOARD -->
+  <div class="screen" id="s-dashboard">
+    <div class="dash-header">
+      <div class="dash-greeting">
+        <div class="name">Good morning, Margaret</div>
+        <div class="date" id="dashDate"></div>
+      </div>
+      <div class="dash-avatar">M</div>
+    </div>
+    <div class="dash-section-label">Upcoming Medications</div>
+    <div class="med-list">
+      <div class="med-card">
+        <div class="med-time-badge">8:00 AM</div>
+        <div class="med-info">
+          <div class="med-name">Metformin</div>
+          <div class="med-dose">500mg · With breakfast</div>
+        </div>
+        <div class="status-pill status-taken">Taken</div>
+      </div>
+      <div class="med-card">
+        <div class="med-time-badge">12:00 PM</div>
+        <div class="med-info">
+          <div class="med-name">Lisinopril</div>
+          <div class="med-dose">10mg · 1 tablet</div>
+        </div>
+        <div class="status-pill status-upcoming">Due Soon</div>
+      </div>
+      <div class="med-card">
+        <div class="med-time-badge">3:00 PM</div>
+        <div class="med-info">
+          <div class="med-name">Amlodipine</div>
+          <div class="med-dose">5mg · 1 tablet</div>
+        </div>
+        <div class="status-pill status-upcoming">Upcoming</div>
+      </div>
+      <div class="med-card">
+        <div class="med-time-badge">9:00 PM</div>
+        <div class="med-info">
+          <div class="med-name">Atorvastatin</div>
+          <div class="med-dose">20mg · With dinner</div>
+        </div>
+        <div class="status-pill status-upcoming">Upcoming</div>
+      </div>
+      <div class="med-card" style="border-color:#f9c0c0;">
+        <div class="med-time-badge" style="background:#fce8e8;color:#7a1b1b;">10:00 AM</div>
+        <div class="med-info">
+          <div class="med-name">Aspirin</div>
+          <div class="med-dose">81mg · Low dose</div>
+        </div>
+        <div class="status-pill status-missed">Missed</div>
+      </div>
+    </div>
+    <div class="dash-footer">
+      <div class="dash-actions">
+        <button class="btn-add" onclick="goTo('s-upload')">
+          <div class="plus-icon">+</div>
+          ADD NEW PRESCRIPTION
+        </button>
+        <button class="btn-outline" type="button" onclick="goTo('s-alarm')">OPEN ALARM PAGE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: UPLOAD -->
+  <div class="screen" id="s-upload">
+    <div class="upload-header">
+      <button class="back-btn" onclick="goTo('s-dashboard')">&#8592;</button>
+      <span class="upload-header-title">Add Prescription</span>
+    </div>
+    <div class="upload-body">
+      <div id="uploadZone" class="upload-zone">
+        <svg class="upload-icon" viewBox="0 0 72 72" fill="none">
+          <circle cx="36" cy="36" r="34" fill="#d0e8ff" stroke="#5a9de0" stroke-width="3"/>
+          <rect x="32" y="16" width="8" height="26" rx="4" fill="#1565c0"/>
+          <rect x="22" y="30" width="28" height="8" rx="4" fill="#1565c0"/>
+          <rect x="18" y="52" width="36" height="5" rx="2.5" fill="#5a9de0"/>
+        </svg>
+        <div class="upload-zone-title">Tap to Upload or Capture</div>
+        <div class="upload-zone-sub">Take a photo of your prescription<br>or upload from gallery</div>
+      </div>
+      <div class="upload-actions">
+        <label class="upload-choice" for="galleryInput">Choose from Gallery</label>
+        <label class="upload-choice" for="cameraInput">Click a Photo</label>
+      </div>
+      <button class="btn-capture" type="button" onclick="focusUploadChoices()">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect x="3" y="7" width="22" height="16" rx="4" fill="none" stroke="#fff" stroke-width="2.2"/>
+          <circle cx="14" cy="15" r="4.5" fill="none" stroke="#fff" stroke-width="2.2"/>
+          <rect x="10" y="3" width="8" height="5" rx="2" fill="#fff"/>
+        </svg>
+        SHOW PHOTO OPTIONS
+      </button>
+      <div class="upload-status" id="uploadStatus">Select an existing prescription photo or take a new one.</div>
+      <input class="visually-hidden-input" id="galleryInput" type="file" accept="image/*" />
+      <input class="visually-hidden-input" id="cameraInput" type="file" accept="image/*" capture="environment" />
+      <div id="previewCard" class="preview-card">
+        <div class="preview-title">Preview Prescription Photo</div>
+        <img id="previewImage" class="preview-image" alt="Selected prescription preview" />
+        <div class="preview-actions">
+          <button class="btn-secondary" type="button" onclick="resetSelectedPhoto()">Choose Another</button>
+          <button class="btn-confirm" type="button" onclick="startScan()">Use This Photo</button>
+        </div>
+      </div>
+      <div id="confirmCard" class="confirm-card">
+        <div class="confirm-title">Prescription Extracted</div>
+        <div class="confirm-row">
+          <span class="confirm-label">Extracted Time</span>
+          <span class="confirm-val" id="confirmTime">-</span>
+        </div>
+        <div class="confirm-row">
+          <span class="confirm-label">Medicine Name</span>
+          <span class="confirm-val" id="confirmMedicine">-</span>
+        </div>
+        <div class="confirm-row">
+          <span class="confirm-label">Frequency</span>
+          <span class="confirm-val" id="confirmFrequency">-</span>
+        </div>
+        <button class="btn-confirm" onclick="goTo('s-dashboard')">CONFIRM SCHEDULE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: ALARM -->
+  <div class="screen" id="s-alarm">
+    <div class="alarm-badge">MEDICATION ALERT</div>
+    <div class="alarm-icon">
+      <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+        <circle cx="40" cy="44" r="26" fill="rgba(255,255,255,0.25)" stroke="#fff" stroke-width="3"/>
+        <rect x="37" y="28" width="6" height="16" rx="3" fill="#fff"/>
+        <circle cx="40" cy="51" r="3.5" fill="#fff"/>
+        <rect x="22" y="13" width="6" height="10" rx="2" transform="rotate(-35 22 13)" fill="#fff"/>
+        <rect x="52" y="13" width="6" height="10" rx="2" transform="rotate(35 52 13)" fill="#fff"/>
+      </svg>
+    </div>
+    <div class="alarm-label">Time to take your medicine</div>
+    <div class="alarm-med-name">Lisinopril</div>
+    <div class="alarm-dose">10mg · 1 tablet</div>
+    <div class="alarm-time">12:00 PM</div>
+    <button class="btn-taken" onclick="markTaken()">
+      MARK AS TAKEN
+    </button>
+    <button class="btn-snooze" onclick="snooze()">
+      SNOOZE 5 MIN
+    </button>
+    <div class="alarm-dismiss" onclick="goTo('s-dashboard')">Dismiss alarm</div>
+  </div>
+
+</div>
+
+<script>
+  const BASE_URL = "http://54.82.65.190:5000";
+  const screens = ['s-login','s-signup','s-dashboard','s-upload','s-alarm'];
+  const userStoreKey = 'medalert-users-v2';
+  const currentUserKey = 'medalert-current-user-v2';
+  const defaultUsers = [
+    { name: 'Margaret', email: 'margaret@example.com', password: 'MedAlert123' }
+  ];
+  let alarmAudio = null;
+  let alarmAudioReady = false;
+  let alarmOscillator = null;
+  let alarmGainNode = null;
+  let alarmPulseTimer = null;
+  let audioContext = null;
+  let selectedPrescriptionImage = '';
+  let uploadedPrescriptionFileKey = '';
+  let snoozeTimer = null;
+
+  async function apiJson(path, options = {}) {
+    const response = await fetch(`${BASE_URL}${path}`, options);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || payload.message || `Request failed (${response.status})`);
+    }
+    return payload;
+  }
+
+  async function uploadImage(file) {
+    try {
+      const userId = getApiUserId();
+      if (!userId) {
+        throw new Error('Please sign in before uploading an image.');
+      }
+
+      const { uploadUrl, fileKey } = await apiJson('/generate-upload-url', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          file_name: file.name,
+          content_type: file.type || "image/jpeg"
+        })
+      });
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type || "image/jpeg"
+        },
+        body: file
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("S3 upload failed");
+      }
+
+      console.log("Uploaded successfully:", fileKey);
+
+      // ✅ IMPORTANT: call OCR after upload
+
+      return fileKey;
+
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadStatus(err.message);
+      return null;
+    }
+  }
+  
+  function getUsers() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(userStoreKey) || 'null');
+      if (Array.isArray(stored) && stored.length) {
+        const mergedUsers = [...stored];
+        defaultUsers.forEach((demoUser) => {
+          const exists = mergedUsers.some((entry) => entry.email && entry.email.toLowerCase() === demoUser.email.toLowerCase());
+          if (!exists) mergedUsers.unshift(demoUser);
+        });
+        localStorage.setItem(userStoreKey, JSON.stringify(mergedUsers));
+        return mergedUsers;
+      }
+    } catch (e) {}
+    localStorage.setItem(userStoreKey, JSON.stringify(defaultUsers));
+    return [...defaultUsers];
+  }
+
+  function saveUsers(users) {
+    localStorage.setItem(userStoreKey, JSON.stringify(users));
+  }
+
+  function getCurrentUser() {
+    try {
+      return JSON.parse(localStorage.getItem(currentUserKey) || 'null');
+    } catch (e) {
+      localStorage.removeItem(currentUserKey);
+      return null;
+    }
+  }
+
+  function setCurrentUser(user) {
+    localStorage.setItem(currentUserKey, JSON.stringify(user));
+  }
+
+  function clearCurrentUser() {
+    localStorage.removeItem(currentUserKey);
+  }
+
+  function normalizeUserId(email) {
+    return (email || '').trim().toLowerCase().split('@')[0];
+  }
+
+  function getApiUserId() {
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser.user_id) return currentUser.user_id;
+    if (currentUser && currentUser.email) return normalizeUserId(currentUser.email);
+    return '';
+  }
+
+  function setMessage(id, message, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = message || '';
+    el.className = 'form-note' + (type ? ' ' + type : '');
+  }
+
+  function updateDashboardUser(user) {
+    const safeUser = user || defaultUsers[0];
+    const firstName = (safeUser.name || 'User').trim().split(/\s+/)[0];
+    document.querySelector('.dash-greeting .name').textContent = 'Good morning, ' + firstName;
+    document.querySelector('.dash-avatar').textContent = firstName.charAt(0).toUpperCase();
+  }
+
+  function clearAuthMessages() {
+    setMessage('loginMessage', '', '');
+    setMessage('signupMessage', '', '');
+  }
+
+  function handleLogin(event) {
+    event.preventDefault();
+    submitLogin();
+  }
+
+  async function submitLogin() {
+    const email = document.getElementById('email-inp').value.trim().toLowerCase();
+    const password = document.getElementById('pass-inp').value;
+
+    if (!email) {
+      setMessage('loginMessage', 'Enter an email address to continue.', 'error');
+      return;
+    }
+    if (!password) {
+      setMessage('loginMessage', 'Enter both email and password.', 'error');
+      return;
+    }
+
+    try {
+      setMessage('loginMessage', 'Signing in...', '');
+      const result = await apiJson('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      clearAuthMessages();
+      const firstName = normalizeUserId(result.email) || 'User';
+      const sessionUser = {
+        name: firstName.charAt(0).toUpperCase() + firstName.slice(1),
+        email: result.email,
+        user_id: result.user_id
+      };
+      setCurrentUser(sessionUser);
+      updateDashboardUser(sessionUser);
+      document.getElementById('loginForm').reset();
+      goTo('s-dashboard');
+    } catch (err) {
+      setMessage('loginMessage', err.message, 'error');
+    }
+  }
+
+  function handleSignup(event) {
+    event.preventDefault();
+    submitSignup();
+  }
+
+  async function submitSignup() {
+    const name = document.getElementById('signup-name').value.trim();
+    const email = document.getElementById('signup-email').value.trim().toLowerCase();
+    const password = document.getElementById('signup-pass').value;
+    const confirmPassword = document.getElementById('signup-pass-confirm').value;
+
+    if (!name || !email || !password || !confirmPassword) {
+      setMessage('signupMessage', 'Please complete all fields.', 'error');
+      return;
+    }
+    if (password.length < 4) {
+      setMessage('signupMessage', 'Use a password with at least 4 characters.', 'error');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setMessage('signupMessage', 'Passwords do not match.', 'error');
+      return;
+    }
+
+    try {
+      setMessage('signupMessage', 'Creating account...', '');
+      const result = await apiJson('/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      clearAuthMessages();
+      const newUser = { name, email: result.email, user_id: result.user_id };
+      setCurrentUser(newUser);
+      updateDashboardUser(newUser);
+      document.getElementById('signupForm').reset();
+      document.getElementById('pass-inp').value = '';
+      goTo('s-dashboard');
+    } catch (err) {
+      setMessage('signupMessage', err.message, 'error');
+    }
+  }
+
+  function requireAuth(targetScreen) {
+    if (targetScreen === 's-login' || targetScreen === 's-signup') return false;
+    if (getCurrentUser()) return false;
+    setMessage('loginMessage', 'Please log in or sign up to continue.', 'error');
+    goTo('s-login');
+    return true;
+  }
+
+  function goTo(id) {
+    if (requireAuth(id)) return;
+    screens.forEach(s => {
+      document.getElementById(s).classList.toggle('active', s === id);
+    });
+    if (id === 's-alarm') {
+      startAlarm();
+    } else {
+      stopAlarm();
+    }
+    if (id !== 's-upload') {
+      resetUploadFlow();
+    }
+  }
+
+  function focusUploadChoices() {
+    setUploadStatus('Tap "Choose from Gallery" or "Click a Photo" below.');
+    document.getElementById('uploadZone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function setUploadStatus(message) {
+    const statusEl = document.getElementById('uploadStatus');
+    if (statusEl) statusEl.textContent = message || '';
+  }
+
+  async function handlePrescriptionSelected(event, source) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) {
+      setUploadStatus('No image selected.');
+      return;
+    }
+    setUploadStatus('Uploading selected image...');
+    const fileKey = await uploadImage(file);
+    if (!fileKey) {
+      event.target.value = '';
+      return;
+    }
+    uploadedPrescriptionFileKey = fileKey || '';
+    if (fileKey) {
+      console.log('File Key:', fileKey);
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      selectedPrescriptionImage = reader.result;
+      document.getElementById('previewImage').src = selectedPrescriptionImage;
+      document.getElementById('previewCard').classList.add('show');
+      document.getElementById('uploadZone').style.display = 'none';
+      document.querySelector('.upload-actions').style.display = 'none';
+      document.querySelector('.btn-capture').style.display = 'none';
+      setUploadStatus((source === 'camera' ? 'Photo captured. Review it before scanning.' : 'Image selected. Review it before scanning.'));
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+
+  function resetSelectedPhoto() {
+    selectedPrescriptionImage = '';
+    uploadedPrescriptionFileKey = '';
+    document.getElementById('previewImage').removeAttribute('src');
+    document.getElementById('previewCard').classList.remove('show');
+    document.getElementById('uploadZone').style.display = '';
+    document.querySelector('.upload-actions').style.display = '';
+    document.querySelector('.btn-capture').style.display = '';
+    document.getElementById('uploadStatus').style.display = '';
+    setUploadStatus('Select an existing prescription photo or take a new one.');
+  }
+
+  function resetUploadFlow() {
+    document.getElementById('confirmCard').classList.remove('show');
+    document.getElementById('previewCard').classList.remove('show');
+    document.getElementById('uploadZone').style.display = '';
+    document.querySelector('.upload-actions').style.display = '';
+    document.querySelector('.btn-capture').style.display = '';
+    document.getElementById('uploadStatus').style.display = '';
+    document.getElementById('previewImage').removeAttribute('src');
+    selectedPrescriptionImage = '';
+    uploadedPrescriptionFileKey = '';
+    setUploadStatus('Select an existing prescription photo or take a new one.');
+  }
+
+  function ensureAlarmAudioContext() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!audioContext) audioContext = new AudioContextClass();
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {});
+    }
+    return audioContext;
+  }
+
+  function startFallbackAlarmTone() {
+    const ctx = ensureAlarmAudioContext();
+    if (!ctx || alarmOscillator) return;
+
+    alarmGainNode = ctx.createGain();
+    alarmGainNode.gain.value = 0;
+    alarmGainNode.connect(ctx.destination);
+
+    alarmOscillator = ctx.createOscillator();
+    alarmOscillator.type = 'square';
+    alarmOscillator.frequency.value = 880;
+    alarmOscillator.connect(alarmGainNode);
+    alarmOscillator.start();
+
+    const pulseTone = () => {
+      if (!alarmGainNode || !audioContext) return;
+      const now = audioContext.currentTime;
+      alarmGainNode.gain.cancelScheduledValues(now);
+      alarmGainNode.gain.setValueAtTime(0.0001, now);
+      alarmGainNode.gain.linearRampToValueAtTime(0.22, now + 0.03);
+      alarmGainNode.gain.linearRampToValueAtTime(0.0001, now + 0.32);
+    };
+
+    pulseTone();
+    alarmPulseTimer = setInterval(pulseTone, 700);
+  }
+
+  function startAlarm() {
+    try {
+      if (!alarmAudio) {
+        alarmAudio = new Audio('alarm.mp3');
+        alarmAudio.loop = true;
+        alarmAudio.addEventListener('canplaythrough', () => {
+          alarmAudioReady = true;
+        });
+        alarmAudio.addEventListener('error', () => {
+          alarmAudioReady = false;
+          startFallbackAlarmTone();
+        });
+      }
+      const playPromise = alarmAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          alarmAudioReady = true;
+        }).catch(() => {
+          alarmAudioReady = false;
+          startFallbackAlarmTone();
+          document.getElementById('s-alarm').addEventListener('click', () => {
+            if (!alarmAudioReady) startFallbackAlarmTone();
+            alarmAudio.play().then(() => {
+              alarmAudioReady = true;
+            }).catch(() => {
+              startFallbackAlarmTone();
+            });
+          }, { once: true });
+        });
+      }
+    } catch(e) {
+      startFallbackAlarmTone();
+    }
+  }
+
+  function stopAlarm() {
+    if (alarmAudio) {
+      alarmAudio.pause();
+      alarmAudio.currentTime = 0;
+    }
+    if (alarmPulseTimer) {
+      clearInterval(alarmPulseTimer);
+      alarmPulseTimer = null;
+    }
+    if (alarmOscillator) {
+      try { alarmOscillator.stop(); } catch (e) {}
+      alarmOscillator.disconnect();
+      alarmOscillator = null;
+    }
+    if (alarmGainNode) {
+      alarmGainNode.disconnect();
+      alarmGainNode = null;
+    }
+    if (snoozeTimer) { clearTimeout(snoozeTimer); snoozeTimer = null; }
+  }
+
+  function markTaken() {
+    stopAlarm();
+    goTo('s-dashboard');
+  }
+
+  function snooze() {
+    stopAlarm();
+    goTo('s-dashboard');
+    if (snoozeTimer) clearTimeout(snoozeTimer);
+    snoozeTimer = setTimeout(() => {
+      goTo('s-alarm');
+    }, 5 * 60 * 1000);
+    const info = document.createElement('div');
+    info.style.cssText = 'position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:#1565c0;color:#fff;padding:12px 22px;border-radius:12px;font-size:17px;z-index:20;white-space:nowrap;';
+    info.textContent = 'Snoozed — alarm in 5 minutes';
+    document.querySelector('.app-frame').appendChild(info);
+    setTimeout(() => info.remove(), 3000);
+  }
+
+  async function startScan() {
+    if (!selectedPrescriptionImage || !uploadedPrescriptionFileKey) {
+      setUploadStatus('Choose or capture a photo first.');
+      return;
+    }
+    setUploadStatus('Scanning selected prescription...');
+    const overlay = document.getElementById('spinnerOverlay');
+    overlay.classList.add('show');
+
+    try {
+      const result = await apiJson('/process-prescription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: getApiUserId(),
+          fileKey: uploadedPrescriptionFileKey
+        })
+      });
+
+      const firstMedicine = (result.medicines && result.medicines[0]) || null;
+      document.getElementById('confirmTime').textContent = firstMedicine ? firstMedicine.time : 'No medicine found';
+      document.getElementById('confirmMedicine').textContent = firstMedicine
+        ? `${firstMedicine.name} ${firstMedicine.dosage}`
+        : 'Unable to extract medicine';
+      document.getElementById('confirmFrequency').textContent = firstMedicine
+        ? `${(result.medicines || []).filter((item) => item.name === firstMedicine.name && item.dosage === firstMedicine.dosage).length} times daily`
+        : '-';
+
+      overlay.classList.remove('show');
+      document.getElementById('uploadZone').style.display = 'none';
+      document.getElementById('previewCard').classList.remove('show');
+      document.querySelector('.upload-actions').style.display = 'none';
+      document.querySelector('.btn-capture').style.display = 'none';
+      document.getElementById('uploadStatus').style.display = 'none';
+      document.getElementById('confirmCard').classList.add('show');
+    } catch (err) {
+      overlay.classList.remove('show');
+      setUploadStatus(err.message);
+    }
+  }
+
+  const d = new Date();
+  const el = document.getElementById('dashDate');
+  if (el) el.textContent = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
+  document.getElementById('loginForm').addEventListener('submit', handleLogin);
+  document.getElementById('signupForm').addEventListener('submit', handleSignup);
+  document.getElementById('openSignupBtn').addEventListener('click', () => {
+    clearAuthMessages();
+    goTo('s-signup');
+  });
+  document.getElementById('backToLoginBtn').addEventListener('click', () => {
+    clearAuthMessages();
+    goTo('s-login');
+  });
+  document.getElementById('galleryInput').addEventListener('change', async (event) => {
+    await handlePrescriptionSelected(event, 'gallery');
+  });
+  document.getElementById('cameraInput').addEventListener('change', async (event) => {
+    await handlePrescriptionSelected(event, 'camera');
+  });
+  const currentUser = getCurrentUser();
+  if (currentUser) {
+    updateDashboardUser(currentUser);
+    goTo('s-dashboard');
+  } else {
+    clearCurrentUser();
+    updateDashboardUser(defaultUsers[0]);
+    getUsers();
+    goTo('s-login');
+  }
+</script>
