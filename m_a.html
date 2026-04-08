@@ -501,7 +501,7 @@
           <div class="plus-icon">+</div>
           ADD NEW PRESCRIPTION
         </button>
-        <button class="btn-outline" type="button" onclick="goTo('s-alarm')">OPEN ALARM PAGE</button>
+        <button class="btn-outline" type="button" onclick="openAlarmPreview()">OPEN ALARM PAGE</button>
       </div>
     </div>
   </div>
@@ -582,16 +582,16 @@
       </svg>
     </div>
     <div class="alarm-label">Time to take your medicine</div>
-    <div class="alarm-med-name">Lisinopril</div>
-    <div class="alarm-dose">10mg · 1 tablet</div>
-    <div class="alarm-time">12:00 PM</div>
+    <div class="alarm-med-name" id="alarmMedicineName">No active reminder</div>
+    <div class="alarm-dose" id="alarmDose">Waiting for the next schedule</div>
+    <div class="alarm-time" id="alarmTime">--:--</div>
     <button class="btn-taken" onclick="markTaken()">
       MARK AS TAKEN
     </button>
     <button class="btn-snooze" onclick="snooze()">
       SNOOZE 5 MIN
     </button>
-    <div class="alarm-dismiss" onclick="goTo('s-dashboard')">Dismiss alarm</div>
+    <div class="alarm-dismiss" onclick="dismissAlarm()">Dismiss alarm</div>
   </div>
 
 </div>
@@ -614,6 +614,13 @@
   let uploadedPrescriptionFileKey = '';
   let snoozeTimer = null;
   let lastExtractedMedicines = [];
+  let currentDashboardMedicines = [];
+  let activeReminder = null;
+  let reminderWatcher = null;
+  let triggeredReminderKeys = {};
+  let snoozedReminderTimes = {};
+  let takenReminderKeys = {};
+  let reminderStateDay = todayKey();
 
   async function apiJson(path, options = {}) {
     const response = await fetch(`${BASE_URL}${path}`, options);
@@ -731,6 +738,59 @@
     return "test123";
   }
 
+  function todayKey() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function reminderKey(item) {
+    return `${todayKey()}|${getApiUserId()}|${item.medicine_id || ''}|${item.name || ''}|${item.dosage || ''}|${item.time || ''}`;
+  }
+
+  function isReminderTaken(item) {
+    return !!takenReminderKeys[reminderKey(item)];
+  }
+
+  function getReminderDoseText(item) {
+    const tablets = Number(item.tablets || 1);
+    const tabletLabel = `${tablets} tablet${tablets === 1 ? '' : 's'}`;
+    return `${item.dosage || '-'} · ${tabletLabel}`;
+  }
+
+  function populateAlarmScreen(item) {
+    const nameEl = document.getElementById('alarmMedicineName');
+    const doseEl = document.getElementById('alarmDose');
+    const timeEl = document.getElementById('alarmTime');
+
+    if (!item) {
+      nameEl.textContent = 'No active reminder';
+      doseEl.textContent = 'Waiting for the next schedule';
+      timeEl.textContent = '--:--';
+      return;
+    }
+
+    nameEl.textContent = item.name || 'Medicine reminder';
+    doseEl.textContent = getReminderDoseText(item);
+    timeEl.textContent = formatTimeLabel(item.time);
+  }
+
+  function parseMinutes(timeValue) {
+    if (!timeValue || typeof timeValue !== 'string' || !timeValue.includes(':')) return Number.MAX_SAFE_INTEGER;
+    const [hourText, minuteText] = timeValue.split(':');
+    return (Number(hourText) * 60) + Number(minuteText || '0');
+  }
+
+  function getNextUpcomingReminder() {
+    const candidates = currentDashboardMedicines
+      .filter((item) => !isReminderTaken(item))
+      .sort((a, b) => parseMinutes(a.time) - parseMinutes(b.time));
+
+    if (!candidates.length) return null;
+
+    const now = new Date();
+    const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+    return candidates.find((item) => parseMinutes(item.time) >= currentMinutes) || candidates[0];
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -792,12 +852,19 @@
     }
 
     const sortedItems = [...items].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-    listEl.innerHTML = sortedItems.map((item, index) => {
+    const nextReminder = getNextUpcomingReminder();
+    listEl.innerHTML = sortedItems.map((item) => {
       const tablets = Number(item.tablets || 1);
       const tabletLabel = `${tablets} tablet${tablets === 1 ? '' : 's'}`;
       const durationLabel = item.duration_text ? ` · ${escapeHtml(item.duration_text)}` : '';
-      const statusClass = index === 0 ? 'status-upcoming' : 'status-upcoming';
-      const statusText = index === 0 ? 'Due Soon' : 'Upcoming';
+      let statusClass = 'status-upcoming';
+      let statusText = 'Upcoming';
+      if (isReminderTaken(item)) {
+        statusClass = 'status-taken';
+        statusText = 'Taken';
+      } else if (nextReminder && reminderKey(nextReminder) === reminderKey(item)) {
+        statusText = 'Due Soon';
+      }
       return `
         <div class="med-card">
           <div class="med-time-badge">${escapeHtml(formatTimeLabel(item.time))}</div>
@@ -814,15 +881,18 @@
   async function loadDashboardMedicines() {
     const userId = getApiUserId();
     if (!userId) {
+      currentDashboardMedicines = [];
       renderDashboardMedicines([]);
       return;
     }
 
     try {
       const medicines = await apiJson(`/get-medicines/${encodeURIComponent(userId)}`);
+      currentDashboardMedicines = medicines;
       renderDashboardMedicines(medicines);
     } catch (err) {
       console.error('Failed to load medicines:', err);
+      currentDashboardMedicines = [];
       renderDashboardMedicines([]);
     }
   }
@@ -830,6 +900,61 @@
   function confirmSchedule() {
     goTo('s-dashboard');
     loadDashboardMedicines();
+  }
+
+  function triggerReminder(item) {
+    activeReminder = item;
+    populateAlarmScreen(item);
+    goTo('s-alarm');
+  }
+
+  function openAlarmPreview() {
+    const previewReminder = activeReminder || getNextUpcomingReminder();
+    populateAlarmScreen(previewReminder);
+    goTo('s-alarm');
+  }
+
+  function checkReminderTimes() {
+    if (!getCurrentUser() || activeReminder || !currentDashboardMedicines.length) return;
+
+    if (reminderStateDay !== todayKey()) {
+      reminderStateDay = todayKey();
+      triggeredReminderKeys = {};
+      snoozedReminderTimes = {};
+      takenReminderKeys = {};
+      renderDashboardMedicines(currentDashboardMedicines);
+    }
+
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const nowMs = now.getTime();
+
+    for (const item of currentDashboardMedicines) {
+      const key = reminderKey(item);
+      if (isReminderTaken(item)) continue;
+
+      const snoozedUntil = snoozedReminderTimes[key];
+      if (snoozedUntil) {
+        if (nowMs >= snoozedUntil) {
+          delete snoozedReminderTimes[key];
+          triggerReminder(item);
+          return;
+        }
+        continue;
+      }
+
+      if (triggeredReminderKeys[key]) continue;
+      if ((item.time || '') === currentTime) {
+        triggeredReminderKeys[key] = true;
+        triggerReminder(item);
+        return;
+      }
+    }
+  }
+
+  function startReminderWatcher() {
+    if (reminderWatcher) return;
+    reminderWatcher = setInterval(checkReminderTimes, 1000);
   }
 
   function setMessage(id, message, type) {
@@ -943,7 +1068,7 @@
     screens.forEach(s => {
       document.getElementById(s).classList.toggle('active', s === id);
     });
-    if (id === 's-alarm') {
+    if (id === 's-alarm' && activeReminder) {
       startAlarm();
     } else {
       stopAlarm();
@@ -1117,22 +1242,38 @@
   }
 
   function markTaken() {
+    if (activeReminder) {
+      takenReminderKeys[reminderKey(activeReminder)] = true;
+    }
+    activeReminder = null;
     stopAlarm();
+    renderDashboardMedicines(currentDashboardMedicines);
     goTo('s-dashboard');
   }
 
   function snooze() {
+    if (activeReminder) {
+      snoozedReminderTimes[reminderKey(activeReminder)] = Date.now() + (5 * 60 * 1000);
+    }
+    activeReminder = null;
     stopAlarm();
+    renderDashboardMedicines(currentDashboardMedicines);
     goTo('s-dashboard');
     if (snoozeTimer) clearTimeout(snoozeTimer);
     snoozeTimer = setTimeout(() => {
-      goTo('s-alarm');
+      checkReminderTimes();
     }, 5 * 60 * 1000);
     const info = document.createElement('div');
     info.style.cssText = 'position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:#1565c0;color:#fff;padding:12px 22px;border-radius:12px;font-size:17px;z-index:20;white-space:nowrap;';
     info.textContent = 'Snoozed — alarm in 5 minutes';
     document.querySelector('.app-frame').appendChild(info);
     setTimeout(() => info.remove(), 3000);
+  }
+
+  function dismissAlarm() {
+    activeReminder = null;
+    stopAlarm();
+    goTo('s-dashboard');
   }
 
   async function startScan() {
@@ -1211,6 +1352,12 @@
     await handlePrescriptionSelected(event, 'camera');
   });
   renderDashboardMedicines([]);
+  startReminderWatcher();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      checkReminderTimes();
+    }
+  });
   clearCurrentUser();
   updateDashboardUser(defaultUsers[0]);
   getUsers();
